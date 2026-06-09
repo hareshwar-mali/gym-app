@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payments — GymSaaS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo"><h2>GymSaaS</h2><p id="gymNameSidebar">—</p></div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+      <a href="members.html" class="nav-item"><span class="nav-icon">👥</span> Members</a>
+      <a href="attendance.html" class="nav-item"><span class="nav-icon">✅</span> Attendance</a>
+      <a href="payments.html" class="nav-item active"><span class="nav-icon">💰</span> Payments</a>
+      <a href="classes.html" class="nav-item"><span class="nav-icon">📅</span> Classes</a>
+      <a href="subscription.html" class="nav-item"><span class="nav-icon">⭐</span> Subscription</a>
+    </nav>
+    <div class="sidebar-footer"><button class="logout-btn" onclick="logout()">🚪 Logout</button></div>
+  </aside>
+
+  <div class="main-content">
+    <div id="subBanner"></div>
+    <div class="top-header">
+      <span class="page-title">💰 Payments</span>
+      <button class="btn btn-primary" onclick="openModal()" style="padding:9px 16px;font-size:0.82rem;">➕ Add</button>
+    </div>
+    <div class="page-body">
+      <div class="stats-row" style="grid-template-columns:repeat(3,1fr);margin-bottom:24px;">
+        <div class="stat-card"><div class="stat-icon">💰</div><div><div class="stat-num" id="revenue">₹0</div><div class="stat-label">This Month</div></div></div>
+        <div class="stat-card"><div class="stat-icon">✅</div><div><div class="stat-num" id="paidCount">0</div><div class="stat-label">Paid</div></div></div>
+        <div class="stat-card"><div class="stat-icon">⚠️</div><div><div class="stat-num" id="pendingCount">0</div><div class="stat-label">Pending</div></div></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Payment History</span>
+          <select id="filterStatus" onchange="filterPayments()" style="padding:7px 12px;border:1px solid #334155;border-radius:8px;font-size:0.82rem;font-family:Poppins,sans-serif;background:#1e293b;color:#f1f5f9;">
+            <option value="">All</option><option value="paid">Paid</option><option value="pending">Pending</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Member</th><th>Amount</th><th>Paid</th><th>Due</th><th>Mode</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="paymentsBody"><tr><td colspan="9" style="text-align:center;padding:32px;color:#94a3b8;">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="payModal">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title" id="payModalTitle">Record Payment</span><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="editPayId">
+      <div class="form-group"><label>Member *</label><select id="pMember"><option value="">Select member</option></select></div>
+      <div class="form-row">
+        <div class="form-group"><label>Total Amount (₹) *</label><input type="number" id="pAmount" placeholder="e.g. 1500" oninput="calcDue()"></div>
+        <div class="form-group"><label>Paid Amount (₹) *</label><input type="number" id="pPaid" placeholder="e.g. 1500" oninput="calcDue()"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Due Amount</label><input type="number" id="pDue" placeholder="0" readonly style="opacity:0.6;"></div>
+        <div class="form-group"><label>Payment Mode</label><select id="pMode"><option value="cash">Cash</option><option value="upi">UPI</option><option value="card">Card</option><option value="bank_transfer">Bank Transfer</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Date *</label><input type="date" id="pDate"></div>
+        <div class="form-group"><label>Status</label><select id="pStatus"><option value="paid">Paid</option><option value="pending">Pending</option><option value="partial">Partial</option></select></div>
+      </div>
+      <div class="form-group"><label>Remarks</label><input type="text" id="pRemarks" placeholder="e.g. Monthly fee"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="savePayBtn" onclick="savePayment()">Save Payment</button>
+    </div>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <a href="dashboard.html" class="bn-item"><span class="bn-icon">📊</span>Home</a>
+    <a href="members.html" class="bn-item"><span class="bn-icon">👥</span>Members</a>
+    <a href="attendance.html" class="bn-item"><span class="bn-icon">✅</span>Attend</a>
+    <a href="payments.html" class="bn-item active"><span class="bn-icon">💰</span>Pay</a>
+    <a href="classes.html" class="bn-item"><span class="bn-icon">📅</span>Classes</a>
+  </div>
+</nav>
+
+<script src="../js/api.js"></script>
+<script>
+  const gym = checkGymAuth();
+  if (gym) { document.getElementById('gymNameSidebar').textContent = gym.gym_name; document.getElementById('subBanner').innerHTML = getSubscriptionBanner(gym); }
+
+  let allPayments = [];
+
+  async function loadData() {
+    const [payRes, memRes] = await Promise.all([api('GET', '/gym/payments/'), api('GET', '/gym/members/')]);
+    if (!payRes?.ok || !memRes?.ok) return;
+    allPayments = await payRes.json();
+    const members = await memRes.json();
+
+    const sel = document.getElementById('pMember');
+    sel.innerHTML = '<option value="">Select member</option>' + members.map(m => `<option value="${m.id}">${m.name} — ${m.mobile}</option>`).join('');
+
+    const now = new Date();
+    const thisMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    const monthPaid = allPayments.filter(p => p.payment_status === 'paid' && p.payment_date?.startsWith(thisMonth));
+    const revenue = monthPaid.reduce((s, p) => s + Number(p.paid_amount), 0);
+    document.getElementById('revenue').textContent = `₹${revenue.toLocaleString('en-IN')}`;
+    document.getElementById('paidCount').textContent = allPayments.filter(p => p.payment_status === 'paid').length;
+    document.getElementById('pendingCount').textContent = allPayments.filter(p => p.payment_status === 'pending').length;
+    renderPayments(allPayments);
+  }
+
+  function renderPayments(payments) {
+    const tbody = document.getElementById('paymentsBody');
+    if (!payments.length) { tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">💰</div><p>No payments recorded yet.</p></div></td></tr>'; return; }
+    tbody.innerHTML = payments.map(p => `<tr>
+      <td style="color:#94a3b8;font-size:0.78rem;">${p.id}</td>
+      <td><strong>${p.member_name || '—'}</strong></td>
+      <td>₹${Number(p.amount).toLocaleString('en-IN')}</td>
+      <td style="color:#22c55e;">₹${Number(p.paid_amount).toLocaleString('en-IN')}</td>
+      <td style="color:#ef4444;">₹${Number(p.due_amount).toLocaleString('en-IN')}</td>
+      <td style="font-size:0.78rem;text-transform:capitalize;">${p.payment_mode}</td>
+      <td>${formatDate(p.payment_date)}</td>
+      <td><span class="badge badge-${p.payment_status}">${p.payment_status}</span></td>
+      <td style="display:flex;gap:4px;">
+        <button class="btn-sm edit" onclick="editPayment(${p.id})">Edit</button>
+        <button class="btn-sm delete" onclick="deletePayment(${p.id})">Delete</button>
+      </td>
+    </tr>`).join('');
+  }
+
+  function filterPayments() {
+    const s = document.getElementById('filterStatus').value;
+    renderPayments(s ? allPayments.filter(p => p.payment_status === s) : allPayments);
+  }
+
+  function calcDue() {
+    const amount = Number(document.getElementById('pAmount').value) || 0;
+    const paid = Number(document.getElementById('pPaid').value) || 0;
+    document.getElementById('pDue').value = Math.max(0, amount - paid);
+  }
+
+  function openModal() {
+    document.getElementById('payModalTitle').textContent = 'Record Payment';
+    document.getElementById('savePayBtn').textContent = 'Save Payment';
+    document.getElementById('editPayId').value = '';
+    document.getElementById('pDate').value = todayStr();
+    document.getElementById('pAmount').value = '';
+    document.getElementById('pPaid').value = '';
+    document.getElementById('pDue').value = '';
+    document.getElementById('pRemarks').value = '';
+    document.getElementById('pMember').disabled = false;
+    document.getElementById('payModal').classList.add('open');
+  }
+  function closeModal() { document.getElementById('payModal').classList.remove('open'); }
+
+  function editPayment(id) {
+    const p = allPayments.find(p => p.id === id);
+    if (!p) return;
+    document.getElementById('payModalTitle').textContent = 'Edit Payment';
+    document.getElementById('savePayBtn').textContent = 'Update Payment';
+    document.getElementById('editPayId').value = id;
+    document.getElementById('pMember').value = p.member;
+    document.getElementById('pMember').disabled = true;
+    document.getElementById('pAmount').value = p.amount;
+    document.getElementById('pPaid').value = p.paid_amount;
+    document.getElementById('pDue').value = p.due_amount;
+    document.getElementById('pMode').value = p.payment_mode;
+    document.getElementById('pDate').value = p.payment_date;
+    document.getElementById('pStatus').value = p.payment_status;
+    document.getElementById('pRemarks').value = p.remarks || '';
+    document.getElementById('payModal').classList.add('open');
+  }
+
+  async function savePayment() {
+    const editId = document.getElementById('editPayId').value;
+    const memberId = document.getElementById('pMember').value;
+    const amount = document.getElementById('pAmount').value;
+    const paid = document.getElementById('pPaid').value;
+    const date = document.getElementById('pDate').value;
+    if (!memberId || !amount || !date) { showToast('Fill all required fields.', 'error'); return; }
+
+    const body = {
+      amount: Number(amount),
+      paid_amount: Number(paid) || Number(amount),
+      due_amount: Number(document.getElementById('pDue').value) || 0,
+      payment_mode: document.getElementById('pMode').value,
+      payment_date: date,
+      payment_status: document.getElementById('pStatus').value,
+      remarks: document.getElementById('pRemarks').value
+    };
+
+    let res;
+    if (editId) {
+      res = await api('PUT', `/gym/payments/${editId}/`, body);
+    } else {
+      res = await api('POST', '/gym/payments/', { member: memberId, ...body });
+    }
+    if (res?.ok) { showToast(editId ? 'Payment updated!' : 'Payment recorded!'); closeModal(); loadData(); }
+    else showToast('Error saving payment.', 'error');
+  }
+
+  async function deletePayment(id) {
+    if (!confirm('Delete this payment?')) return;
+    const res = await api('DELETE', `/gym/payments/${id}/`);
+    if (res?.ok) { showToast('Payment deleted.'); loadData(); }
+  }
+
+  loadData();
+</script>
+</body>
+</html>

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Super Admin — GymSaaS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo"><h2>GymSaaS</h2><p>Super Admin</p></div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-item active"><span class="nav-icon">📊</span> Dashboard</a>
+      <a href="gyms.html" class="nav-item"><span class="nav-icon">🏋️</span> All Gyms</a>
+    </nav>
+    <div class="sidebar-footer"><button class="logout-btn" onclick="logout()">🚪 Logout</button></div>
+  </aside>
+
+  <div class="main-content">
+    <div class="top-header">
+      <span class="page-title">📊 Super Admin Dashboard</span>
+      <span style="font-size:0.8rem;color:#94a3b8;" id="todayDate"></span>
+    </div>
+    <div class="page-body">
+
+      <div class="stats-row" style="grid-template-columns:repeat(4,1fr);">
+        <div class="stat-card"><div class="stat-icon">🏋️</div><div><div class="stat-num" id="totalGyms">—</div><div class="stat-label">Total Gyms</div></div></div>
+        <div class="stat-card"><div class="stat-icon">🎯</div><div><div class="stat-num" id="trialActive">—</div><div class="stat-label">Trial Active</div></div></div>
+        <div class="stat-card"><div class="stat-icon">✅</div><div><div class="stat-num" id="activePaid">—</div><div class="stat-label">Active Paid</div></div></div>
+        <div class="stat-card"><div class="stat-icon">💰</div><div><div class="stat-num" id="totalRevenue">₹0</div><div class="stat-label">Total Revenue</div></div></div>
+      </div>
+
+      <div class="stats-row" style="grid-template-columns:repeat(4,1fr);margin-top:0;">
+        <div class="stat-card"><div class="stat-icon">⏰</div><div><div class="stat-num" id="trialExpired">—</div><div class="stat-label">Trial Expired</div></div></div>
+        <div class="stat-card"><div class="stat-icon">🚫</div><div><div class="stat-num" id="expired">—</div><div class="stat-label">Expired</div></div></div>
+        <div class="stat-card"><div class="stat-icon">⚠️</div><div><div class="stat-num" id="expiringWeek">—</div><div class="stat-label">Expiring (7 days)</div></div></div>
+        <div class="stat-card"><div class="stat-icon">🔒</div><div><div class="stat-num" id="blocked">—</div><div class="stat-label">Blocked</div></div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">⚠️ Expiring This Week</span>
+          <a href="gyms.html" class="btn btn-outline" style="padding:6px 14px;font-size:0.78rem;">View All Gyms</a>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Gym Name</th><th>Owner</th><th>Mobile</th><th>Status</th><th>Expiry</th><th>Days Left</th><th>Action</th></tr></thead>
+            <tbody id="expiringBody"><tr><td colspan="7" style="text-align:center;padding:24px;color:#94a3b8;">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+  checkSuperAuth();
+  document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+  async function loadDashboard() {
+    const res = await api('GET', '/super/dashboard/');
+    if (!res?.ok) return;
+    const d = await res.json();
+
+    document.getElementById('totalGyms').textContent = d.total_gyms;
+    document.getElementById('trialActive').textContent = d.trial_active;
+    document.getElementById('activePaid').textContent = d.active_paid;
+    document.getElementById('totalRevenue').textContent = `₹${Number(d.total_revenue).toLocaleString('en-IN')}`;
+    document.getElementById('trialExpired').textContent = d.trial_expired;
+    document.getElementById('expired').textContent = d.expired;
+    document.getElementById('expiringWeek').textContent = d.expiring_this_week;
+    document.getElementById('blocked').textContent = d.blocked;
+
+    const tbody = document.getElementById('expiringBody');
+    if (!d.upcoming_expiry.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:#94a3b8;">No gyms expiring this week</td></tr>';
+      return;
+    }
+    tbody.innerHTML = d.upcoming_expiry.map(g => {
+      const expiry = g.subscription_end_date || g.trial_end_date;
+      const days = daysLeft(expiry);
+      return `<tr>
+        <td><strong>${g.gym_name}</strong></td>
+        <td>${g.owner_name}</td>
+        <td>${g.mobile}</td>
+        <td><span class="badge badge-expiring">${g.status.replace('_',' ')}</span></td>
+        <td>${formatDate(expiry)}</td>
+        <td style="color:${days <= 3 ? '#ef4444' : '#eab308'};font-weight:700;">${days}</td>
+        <td><a href="gyms.html?search=${g.mobile}" class="btn-sm mark">Renew</a></td>
+      </tr>`;
+    }).join('');
+  }
+  loadDashboard();
+</script>
+</body>
+</html>

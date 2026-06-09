@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Attendance — GymSaaS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo"><h2>GymSaaS</h2><p id="gymNameSidebar">—</p></div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+      <a href="members.html" class="nav-item"><span class="nav-icon">👥</span> Members</a>
+      <a href="attendance.html" class="nav-item active"><span class="nav-icon">✅</span> Attendance</a>
+      <a href="payments.html" class="nav-item"><span class="nav-icon">💰</span> Payments</a>
+      <a href="classes.html" class="nav-item"><span class="nav-icon">📅</span> Classes</a>
+      <a href="subscription.html" class="nav-item"><span class="nav-icon">⭐</span> Subscription</a>
+    </nav>
+    <div class="sidebar-footer"><button class="logout-btn" onclick="logout()">🚪 Logout</button></div>
+  </aside>
+
+  <div class="main-content">
+    <div id="subBanner"></div>
+    <div class="top-header">
+      <span class="page-title">✅ Attendance</span>
+      <input type="date" id="dateInput" onchange="loadAttendance()" style="padding:8px 12px;border:1px solid #334155;border-radius:8px;background:#1e293b;color:#f1f5f9;font-family:Poppins,sans-serif;font-size:0.85rem;">
+    </div>
+    <div class="page-body">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+        <div>
+          <h3 style="font-size:1rem;" id="attTitle">Today's Attendance</h3>
+          <p style="font-size:0.82rem;color:#64748b;" id="attCount">Loading...</p>
+        </div>
+        <button class="btn btn-primary" onclick="markAllPresent()">✅ Mark All Present</button>
+      </div>
+      <div class="attendance-grid" id="attGrid">
+        <p style="color:#94a3b8;font-size:0.85rem;">Loading members...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <a href="dashboard.html" class="bn-item"><span class="bn-icon">📊</span>Home</a>
+    <a href="members.html" class="bn-item"><span class="bn-icon">👥</span>Members</a>
+    <a href="attendance.html" class="bn-item active"><span class="bn-icon">✅</span>Attend</a>
+    <a href="payments.html" class="bn-item"><span class="bn-icon">💰</span>Pay</a>
+    <a href="classes.html" class="bn-item"><span class="bn-icon">📅</span>Classes</a>
+  </div>
+</nav>
+
+<script src="../js/api.js"></script>
+<script>
+  const gym = checkGymAuth();
+  if (gym) { document.getElementById('gymNameSidebar').textContent = gym.gym_name; document.getElementById('subBanner').innerHTML = getSubscriptionBanner(gym); }
+
+  const dateInput = document.getElementById('dateInput');
+  dateInput.value = todayStr();
+
+  let allMembers = [];
+  let presentIds = new Set();
+
+  async function loadAttendance() {
+    const date = dateInput.value;
+    document.getElementById('attTitle').textContent = date === todayStr() ? "Today's Attendance" : `Attendance — ${formatDate(date)}`;
+
+    const [memRes, attRes] = await Promise.all([
+      api('GET', '/gym/members/'),
+      api('GET', `/gym/attendance/?date=${date}`)
+    ]);
+
+    if (!memRes?.ok || !attRes?.ok) return;
+    allMembers = await memRes.json();
+    const attRecords = await attRes.json();
+    presentIds = new Set(attRecords.map(r => r.member));
+
+    updateCount();
+    renderGrid();
+  }
+
+  function updateCount() {
+    const active = allMembers.filter(m => m.membership_status === 'active');
+    document.getElementById('attCount').textContent = `${presentIds.size} of ${active.length} members present`;
+  }
+
+  function renderGrid() {
+    const grid = document.getElementById('attGrid');
+    const active = allMembers.filter(m => m.membership_status === 'active');
+    if (!active.length) { grid.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p>No active members found.</p></div>'; return; }
+    grid.innerHTML = active.map(m => {
+      const isPresent = presentIds.has(m.id);
+      return `<div class="att-card ${isPresent ? 'present' : ''}" id="card-${m.id}">
+        <div><div class="att-name">${m.name}</div><div class="att-plan">${m.membership_plan || '—'}</div></div>
+        <button class="btn-sm ${isPresent ? 'mark' : 'edit'}" onclick="toggle(${m.id}, '${m.name}')">
+          ${isPresent ? '✅ Present' : 'Mark Present'}
+        </button>
+      </div>`;
+    }).join('');
+  }
+
+  async function toggle(memberId, memberName) {
+    const date = dateInput.value;
+    const isPresent = presentIds.has(memberId);
+    const res = await api('POST', '/gym/attendance/', {
+      member: memberId, attendance_date: date,
+      status: 'present', check_in_time: new Date().toTimeString().slice(0,8)
+    });
+    if (!res) return;
+    if (res.status === 201) { presentIds.add(memberId); showToast(`${memberName} marked present!`); }
+    else if (res.ok) { presentIds.delete(memberId); showToast(`${memberName} marked absent.`); }
+    updateCount(); renderGrid();
+  }
+
+  async function markAllPresent() {
+    if (!confirm('Mark all active members as present?')) return;
+    const res = await api('POST', '/gym/attendance/bulk/', { date: dateInput.value });
+    if (res?.ok) { showToast('All members marked present!'); loadAttendance(); }
+  }
+
+  loadAttendance();
+</script>
+</body>
+</html>

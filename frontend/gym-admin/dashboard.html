@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — GymSaaS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo"><h2>GymSaaS</h2><p id="gymNameSidebar">Loading...</p></div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-item active"><span class="nav-icon">📊</span> Dashboard</a>
+      <a href="members.html" class="nav-item"><span class="nav-icon">👥</span> Members</a>
+      <a href="attendance.html" class="nav-item"><span class="nav-icon">✅</span> Attendance</a>
+      <a href="payments.html" class="nav-item"><span class="nav-icon">💰</span> Payments</a>
+      <a href="classes.html" class="nav-item"><span class="nav-icon">📅</span> Classes</a>
+      <a href="subscription.html" class="nav-item"><span class="nav-icon">⭐</span> Subscription</a>
+    </nav>
+    <div class="sidebar-footer"><button class="logout-btn" onclick="logout()">🚪 Logout</button></div>
+  </aside>
+
+  <div class="main-content">
+    <div id="subBanner"></div>
+    <div class="top-header">
+      <span class="page-title">📊 Dashboard</span>
+      <span style="font-size:0.8rem;color:#94a3b8;" id="todayDate"></span>
+    </div>
+
+    <div class="page-body">
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-icon">👥</div><div><div class="stat-num" id="totalMembers">—</div><div class="stat-label">Total Members</div></div></div>
+        <div class="stat-card"><div class="stat-icon">✅</div><div><div class="stat-num" id="activeMembers">—</div><div class="stat-label">Active</div></div></div>
+        <div class="stat-card"><div class="stat-icon">📋</div><div><div class="stat-num" id="todayAtt">—</div><div class="stat-label">Today</div></div></div>
+        <div class="stat-card"><div class="stat-icon">⚠️</div><div><div class="stat-num" id="expiring">—</div><div class="stat-label">Expiring</div></div></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:20px;" class="dash-grid">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Recent Members</span>
+            <a href="members.html" class="btn btn-outline" style="padding:6px 14px;font-size:0.78rem;">View All</a>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Name</th><th>Plan</th><th>Expiry</th><th>Status</th></tr></thead>
+              <tbody id="recentBody"><tr><td colspan="4" style="text-align:center;padding:24px;color:#94a3b8;">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Quick Actions</span></div>
+            <div class="card-body" style="display:flex;flex-direction:column;gap:10px;">
+              <a href="members.html" class="btn btn-primary" style="justify-content:center;">➕ Add Member</a>
+              <a href="attendance.html" class="btn btn-outline" style="justify-content:center;">✅ Mark Attendance</a>
+              <a href="payments.html" class="btn btn-outline" style="justify-content:center;">💰 Record Payment</a>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">Revenue</span></div>
+            <div class="card-body">
+              <div class="stat-num" id="revenue" style="font-size:1.6rem;">₹0</div>
+              <div class="stat-label">This Month</div>
+              <div style="margin-top:10px;font-size:0.8rem;color:#94a3b8;">Pending: <strong id="pendingPay" style="color:#eab308;">0</strong> payments</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <a href="dashboard.html" class="bn-item active"><span class="bn-icon">📊</span>Home</a>
+    <a href="members.html" class="bn-item"><span class="bn-icon">👥</span>Members</a>
+    <a href="attendance.html" class="bn-item"><span class="bn-icon">✅</span>Attend</a>
+    <a href="payments.html" class="bn-item"><span class="bn-icon">💰</span>Pay</a>
+    <a href="classes.html" class="bn-item"><span class="bn-icon">📅</span>Classes</a>
+  </div>
+</nav>
+
+<script src="../js/api.js"></script>
+<script>
+  const gym = checkGymAuth();
+  if (gym) {
+    document.getElementById('gymNameSidebar').textContent = gym.gym_name;
+    document.getElementById('subBanner').innerHTML = getSubscriptionBanner(gym);
+  }
+  document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+  async function loadDashboard() {
+    const res = await api('GET', '/gym/dashboard/');
+    if (!res || !res.ok) return;
+    const d = await res.json();
+
+    document.getElementById('totalMembers').textContent = d.total_members;
+    document.getElementById('activeMembers').textContent = d.active_members;
+    document.getElementById('todayAtt').textContent = d.today_attendance;
+    document.getElementById('expiring').textContent = d.expiring_this_week;
+    document.getElementById('revenue').textContent = `₹${Number(d.monthly_revenue).toLocaleString('en-IN')}`;
+    document.getElementById('pendingPay').textContent = d.pending_payments;
+
+    const tbody = document.getElementById('recentBody');
+    if (!d.recent_members.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:#94a3b8;">No members yet</td></tr>';
+      return;
+    }
+    tbody.innerHTML = d.recent_members.map(m => {
+      const days = daysLeft(m.membership_end_date);
+      const badge = m.membership_status !== 'active' ? 'badge-expired' : days < 0 ? 'badge-expired' : days <= 7 ? 'badge-expiring' : 'badge-active';
+      const label = m.membership_status !== 'active' ? 'Inactive' : days < 0 ? 'Expired' : days <= 7 ? 'Expiring' : 'Active';
+      return `<tr>
+        <td><strong>${m.name}</strong><br><span style="font-size:0.72rem;color:#94a3b8;">${m.mobile}</span></td>
+        <td style="font-size:0.78rem;">${m.membership_plan || '—'}</td>
+        <td>${formatDate(m.membership_end_date)}</td>
+        <td><span class="badge ${badge}">${label}</span></td>
+      </tr>`;
+    }).join('');
+  }
+  loadDashboard();
+</script>
+</body>
+</html>

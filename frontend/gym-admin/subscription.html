@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Subscription — GymSaaS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo"><h2>GymSaaS</h2><p id="gymNameSidebar">—</p></div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+      <a href="members.html" class="nav-item"><span class="nav-icon">👥</span> Members</a>
+      <a href="attendance.html" class="nav-item"><span class="nav-icon">✅</span> Attendance</a>
+      <a href="payments.html" class="nav-item"><span class="nav-icon">💰</span> Payments</a>
+      <a href="classes.html" class="nav-item"><span class="nav-icon">📅</span> Classes</a>
+      <a href="subscription.html" class="nav-item active"><span class="nav-icon">⭐</span> Subscription</a>
+    </nav>
+    <div class="sidebar-footer"><button class="logout-btn" onclick="logout()">🚪 Logout</button></div>
+  </aside>
+
+  <div class="main-content">
+    <div class="top-header"><span class="page-title">⭐ Subscription</span></div>
+    <div class="page-body">
+
+      <!-- Current Status -->
+      <div class="card" style="margin-bottom:24px;">
+        <div class="card-body" id="statusCard">
+          <p style="color:#94a3b8;">Loading subscription info...</p>
+        </div>
+      </div>
+
+      <!-- Plans -->
+      <h3 style="font-size:1rem;font-weight:700;margin-bottom:4px;">Choose a Plan</h3>
+      <p style="color:#94a3b8;font-size:0.82rem;margin-bottom:0;">Pay via UPI or bank transfer and send screenshot on WhatsApp.</p>
+      <div class="plans-grid" id="plansGrid">
+        <p style="color:#94a3b8;">Loading plans...</p>
+      </div>
+
+      <!-- Payment Instructions -->
+      <div class="card" style="margin-top:24px;">
+        <div class="card-header"><span class="card-title">How to Pay</span></div>
+        <div class="card-body">
+          <ol style="color:#94a3b8;font-size:0.85rem;line-height:2;padding-left:20px;">
+            <li>Choose your plan above</li>
+            <li>Pay using UPI or bank transfer to admin</li>
+            <li>Take a screenshot of the payment</li>
+            <li>Send the screenshot on WhatsApp: <strong style="color:#f97316;" id="adminWhatsApp">+91 XXXXXXXXXX</strong></li>
+            <li>Admin will activate your plan within a few hours</li>
+          </ol>
+          <a id="waBtn" href="#" target="_blank" class="btn btn-primary" style="margin-top:16px;justify-content:center;">
+            💬 Send Payment on WhatsApp
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <a href="dashboard.html" class="bn-item"><span class="bn-icon">📊</span>Home</a>
+    <a href="members.html" class="bn-item"><span class="bn-icon">👥</span>Members</a>
+    <a href="attendance.html" class="bn-item"><span class="bn-icon">✅</span>Attend</a>
+    <a href="payments.html" class="bn-item"><span class="bn-icon">💰</span>Pay</a>
+    <a href="subscription.html" class="bn-item active"><span class="bn-icon">⭐</span>Sub</a>
+  </div>
+</nav>
+
+<script src="../js/api.js"></script>
+<script>
+  const ADMIN_WHATSAPP = '919999999999';
+
+  const gym = checkGymAuth();
+  if (gym) {
+    document.getElementById('gymNameSidebar').textContent = gym.gym_name;
+
+    const days = daysLeft(gym.subscription_end_date || gym.trial_end_date);
+    const statusMap = {
+      trial_active: { icon: '🎯', label: 'Free Trial Active', color: '#93c5fd', bg: '#1e3a5f' },
+      trial_expired: { icon: '⏰', label: 'Trial Expired', color: '#fca5a5', bg: '#450a0a' },
+      active: { icon: '✅', label: 'Subscription Active', color: '#86efac', bg: '#14532d' },
+      expiring_soon: { icon: '⚠️', label: 'Expiring Soon', color: '#fde68a', bg: '#422006' },
+      expired: { icon: '🚫', label: 'Subscription Expired', color: '#fca5a5', bg: '#450a0a' },
+    };
+    const s = statusMap[gym.status] || statusMap['trial_active'];
+    const expiry = gym.subscription_end_date || gym.trial_end_date;
+
+    document.getElementById('statusCard').innerHTML = `
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <div style="background:${s.bg};color:${s.color};border-radius:12px;padding:16px 24px;font-size:1rem;font-weight:700;">
+          ${s.icon} ${s.label}
+        </div>
+        <div>
+          <div style="font-size:0.82rem;color:#94a3b8;">Plan</div>
+          <div style="font-weight:700;">${gym.status.includes('trial') ? 'Free Trial' : 'Paid Subscription'}</div>
+        </div>
+        <div>
+          <div style="font-size:0.82rem;color:#94a3b8;">Expires</div>
+          <div style="font-weight:700;">${formatDate(expiry)}</div>
+        </div>
+        <div>
+          <div style="font-size:0.82rem;color:#94a3b8;">Days Left</div>
+          <div style="font-weight:700;color:${days <= 3 ? '#ef4444' : '#f97316'};">${days > 0 ? days : 'Expired'}</div>
+        </div>
+      </div>`;
+
+    const waMsg = encodeURIComponent(`Hi, I want to activate a plan for my gym.\n\nGym: ${gym.gym_name}\nOwner: ${gym.owner_name}\nMobile: ${gym.mobile}`);
+    document.getElementById('waBtn').href = `https://wa.me/${ADMIN_WHATSAPP}?text=${waMsg}`;
+    document.getElementById('adminWhatsApp').textContent = `+91 ${ADMIN_WHATSAPP.slice(2)}`;
+  }
+
+  async function loadPlans() {
+    const res = await api('GET', '/subscriptions/plans/');
+    if (!res?.ok) return;
+    const plans = await res.json();
+    const grid = document.getElementById('plansGrid');
+    if (!plans.length) { grid.innerHTML = '<p style="color:#94a3b8;">No plans available.</p>'; return; }
+    grid.innerHTML = plans.map((p, i) => `
+      <div class="plan-card ${i === 1 ? 'featured' : ''}">
+        ${i === 1 ? '<div style="background:#f97316;color:white;border-radius:20px;padding:4px 14px;font-size:0.72rem;font-weight:700;display:inline-block;margin-bottom:12px;">BEST VALUE</div>' : ''}
+        <div class="plan-name">${p.name}</div>
+        <div class="plan-price">₹${Number(p.price).toLocaleString('en-IN')}<span>/plan</span></div>
+        <div class="plan-duration">${p.duration_days} days</div>
+        <a href="#" onclick="selectPlan('${p.name}', ${p.price})" class="btn btn-${i === 1 ? 'primary' : 'outline'}" style="width:100%;justify-content:center;">Choose Plan</a>
+      </div>`).join('');
+  }
+
+  function selectPlan(name, price) {
+    if (!gym) return;
+    const waMsg = encodeURIComponent(`Hi, I want to activate the *${name}* plan (₹${price}) for my gym.\n\nGym: ${gym.gym_name}\nOwner: ${gym.owner_name}\nMobile: ${gym.mobile}\n\nAttaching payment screenshot.`);
+    window.open(`https://wa.me/${ADMIN_WHATSAPP}?text=${waMsg}`, '_blank');
+  }
+
+  loadPlans();
+</script>
+</body>
+</html>

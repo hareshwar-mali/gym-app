@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Members — GymSaaS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo"><h2>GymSaaS</h2><p id="gymNameSidebar">—</p></div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+      <a href="members.html" class="nav-item active"><span class="nav-icon">👥</span> Members</a>
+      <a href="attendance.html" class="nav-item"><span class="nav-icon">✅</span> Attendance</a>
+      <a href="payments.html" class="nav-item"><span class="nav-icon">💰</span> Payments</a>
+      <a href="classes.html" class="nav-item"><span class="nav-icon">📅</span> Classes</a>
+      <a href="subscription.html" class="nav-item"><span class="nav-icon">⭐</span> Subscription</a>
+    </nav>
+    <div class="sidebar-footer"><button class="logout-btn" onclick="logout()">🚪 Logout</button></div>
+  </aside>
+
+  <div class="main-content">
+    <div id="subBanner"></div>
+    <div class="top-header">
+      <span class="page-title">👥 Members</span>
+      <button class="btn btn-primary" onclick="openModal()" style="padding:9px 16px;font-size:0.82rem;">➕ Add</button>
+    </div>
+    <div class="page-body">
+      <div class="card">
+        <div class="card-header" style="flex-wrap:wrap;gap:10px;">
+          <span class="card-title">All Members</span>
+          <input type="text" class="search-input" id="searchInput" placeholder="🔍 Search name or phone..." oninput="filterMembers()">
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Plan</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="membersBody"><tr><td colspan="7" style="text-align:center;padding:32px;color:#94a3b8;">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="memberModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">Add New Member</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editId">
+      <div class="form-row">
+        <div class="form-group"><label>Full Name *</label><input type="text" id="mName" placeholder="e.g. Rahul Sharma"></div>
+        <div class="form-group"><label>Mobile *</label><input type="tel" id="mMobile" placeholder="e.g. 9876543210"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Email</label><input type="email" id="mEmail" placeholder="optional"></div>
+        <div class="form-group"><label>Gender</label><select id="mGender"><option value="">Select</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Age</label><input type="number" id="mAge" placeholder="e.g. 25"></div>
+        <div class="form-group"><label>Fitness Goal</label><input type="text" id="mGoal" placeholder="e.g. Weight loss"></div>
+      </div>
+      <div class="form-group"><label>Address</label><input type="text" id="mAddress" placeholder="Member address"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Joining Date *</label><input type="date" id="mJoining"></div>
+        <div class="form-group"><label>Membership Plan</label><input type="text" id="mPlan" placeholder="e.g. Monthly Basic"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Start Date *</label><input type="date" id="mStart"></div>
+        <div class="form-group"><label>End Date *</label><input type="date" id="mEnd"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Trainer</label><input type="text" id="mTrainer" placeholder="Assigned trainer"></div>
+        <div class="form-group"><label>Payment Status</label><select id="mPayStatus"><option value="paid">Paid</option><option value="pending">Pending</option><option value="partial">Partial</option></select></div>
+      </div>
+      <div class="form-group"><label>Status</label><select id="mStatus"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="saveBtn" onclick="saveMember()">Save Member</button>
+    </div>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <a href="dashboard.html" class="bn-item"><span class="bn-icon">📊</span>Home</a>
+    <a href="members.html" class="bn-item active"><span class="bn-icon">👥</span>Members</a>
+    <a href="attendance.html" class="bn-item"><span class="bn-icon">✅</span>Attend</a>
+    <a href="payments.html" class="bn-item"><span class="bn-icon">💰</span>Pay</a>
+    <a href="classes.html" class="bn-item"><span class="bn-icon">📅</span>Classes</a>
+  </div>
+</nav>
+
+<script src="../js/api.js"></script>
+<script>
+  const gym = checkGymAuth();
+  if (gym) { document.getElementById('gymNameSidebar').textContent = gym.gym_name; document.getElementById('subBanner').innerHTML = getSubscriptionBanner(gym); }
+
+  let allMembers = [];
+
+  async function loadMembers() {
+    const res = await api('GET', '/gym/members/');
+    if (!res || !res.ok) return;
+    allMembers = await res.json();
+    renderMembers(allMembers);
+  }
+
+  function renderMembers(members) {
+    const tbody = document.getElementById('membersBody');
+    if (!members.length) { tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">👥</div><p>No members yet. Add your first member.</p></div></td></tr>'; return; }
+    tbody.innerHTML = members.map(m => {
+      const days = daysLeft(m.membership_end_date);
+      const badge = m.membership_status !== 'active' ? 'badge-expired' : days < 0 ? 'badge-expired' : days <= 7 ? 'badge-expiring' : 'badge-active';
+      const label = m.membership_status !== 'active' ? 'Inactive' : days < 0 ? 'Expired' : days <= 7 ? 'Expiring' : 'Active';
+      return `<tr>
+        <td style="color:#94a3b8;font-size:0.78rem;">${m.id}</td>
+        <td><strong>${m.name}</strong><br><span style="font-size:0.72rem;color:#94a3b8;">${m.mobile}</span></td>
+        <td>${m.mobile}</td>
+        <td style="font-size:0.78rem;">${m.membership_plan || '—'}</td>
+        <td>${formatDate(m.membership_end_date)}</td>
+        <td><span class="badge ${badge}">${label}</span></td>
+        <td style="display:flex;gap:6px;">
+          <button class="btn-sm edit" onclick="editMember(${m.id})">Edit</button>
+          <button class="btn-sm delete" onclick="deleteMember(${m.id})">Delete</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  function filterMembers() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    renderMembers(allMembers.filter(m => m.name.toLowerCase().includes(q) || m.mobile.includes(q)));
+  }
+
+  function openModal() {
+    document.getElementById('modalTitle').textContent = 'Add New Member';
+    document.getElementById('editId').value = '';
+    ['mName','mMobile','mEmail','mAge','mGoal','mAddress','mPlan','mTrainer'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('mGender').value = '';
+    document.getElementById('mPayStatus').value = 'paid';
+    document.getElementById('mStatus').value = 'active';
+    document.getElementById('mJoining').value = todayStr();
+    document.getElementById('mStart').value = todayStr();
+    document.getElementById('mEnd').value = '';
+    document.getElementById('memberModal').classList.add('open');
+  }
+
+  function closeModal() { document.getElementById('memberModal').classList.remove('open'); }
+
+  function editMember(id) {
+    const m = allMembers.find(m => m.id === id);
+    if (!m) return;
+    document.getElementById('modalTitle').textContent = 'Edit Member';
+    document.getElementById('editId').value = id;
+    document.getElementById('mName').value = m.name || '';
+    document.getElementById('mMobile').value = m.mobile || '';
+    document.getElementById('mEmail').value = m.email || '';
+    document.getElementById('mGender').value = m.gender || '';
+    document.getElementById('mAge').value = m.age || '';
+    document.getElementById('mGoal').value = m.fitness_goal || '';
+    document.getElementById('mAddress').value = m.address || '';
+    document.getElementById('mJoining').value = m.joining_date || '';
+    document.getElementById('mPlan').value = m.membership_plan || '';
+    document.getElementById('mStart').value = m.membership_start_date || '';
+    document.getElementById('mEnd').value = m.membership_end_date || '';
+    document.getElementById('mTrainer').value = m.assigned_trainer || '';
+    document.getElementById('mPayStatus').value = m.payment_status || 'paid';
+    document.getElementById('mStatus').value = m.membership_status || 'active';
+    document.getElementById('memberModal').classList.add('open');
+  }
+
+  async function saveMember() {
+    const id = document.getElementById('editId').value;
+    const name = document.getElementById('mName').value.trim();
+    const mobile = document.getElementById('mMobile').value.trim();
+    const joining = document.getElementById('mJoining').value;
+    const start = document.getElementById('mStart').value;
+    const end = document.getElementById('mEnd').value;
+    if (!name || !mobile || !joining || !start || !end) { showToast('Fill all required fields.', 'error'); return; }
+
+    const body = {
+      name, mobile,
+      email: document.getElementById('mEmail').value.trim(),
+      gender: document.getElementById('mGender').value,
+      age: document.getElementById('mAge').value || null,
+      fitness_goal: document.getElementById('mGoal').value.trim(),
+      address: document.getElementById('mAddress').value.trim(),
+      joining_date: joining,
+      membership_plan: document.getElementById('mPlan').value.trim(),
+      membership_start_date: start,
+      membership_end_date: end,
+      assigned_trainer: document.getElementById('mTrainer').value.trim(),
+      payment_status: document.getElementById('mPayStatus').value,
+      membership_status: document.getElementById('mStatus').value,
+    };
+
+    const btn = document.getElementById('saveBtn');
+    btn.textContent = 'Saving...'; btn.disabled = true;
+
+    const res = id ? await api('PUT', `/gym/members/${id}/`, body) : await api('POST', '/gym/members/', body);
+    btn.textContent = 'Save Member'; btn.disabled = false;
+
+    if (!res || !res.ok) { const d = await res?.json(); showToast(d?.error || 'Error saving member.', 'error'); return; }
+    showToast(id ? 'Member updated!' : 'Member added!');
+    closeModal();
+    loadMembers();
+  }
+
+  async function deleteMember(id) {
+    if (!confirm('Delete this member?')) return;
+    const res = await api('DELETE', `/gym/members/${id}/`);
+    if (res && res.ok) { showToast('Member deleted.'); loadMembers(); }
+    else showToast('Error deleting member.', 'error');
+  }
+
+  loadMembers();
+</script>
+</body>
+</html>

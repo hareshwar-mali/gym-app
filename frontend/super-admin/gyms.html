@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>All Gyms — GymSaaS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo"><h2>GymSaaS</h2><p>Super Admin</p></div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+      <a href="gyms.html" class="nav-item active"><span class="nav-icon">🏋️</span> All Gyms</a>
+    </nav>
+    <div class="sidebar-footer"><button class="logout-btn" onclick="logout()">🚪 Logout</button></div>
+  </aside>
+
+  <div class="main-content">
+    <div class="top-header">
+      <span class="page-title">🏋️ All Gyms</span>
+    </div>
+    <div class="page-body">
+
+      <!-- Search + Filter -->
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-body" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+          <input type="text" id="searchInput" class="search-input" placeholder="🔍 Search mobile, gym name, owner, email..." style="flex:1;min-width:220px;" oninput="searchGyms()">
+          <select id="filterSelect" onchange="filterGyms()" style="padding:9px 14px;border:1px solid #334155;border-radius:10px;background:#1e293b;color:#f1f5f9;font-family:Poppins,sans-serif;font-size:0.82rem;">
+            <option value="">All Gyms</option>
+            <option value="trial_active">Trial Active</option>
+            <option value="trial_expired">Trial Expired</option>
+            <option value="active">Active Paid</option>
+            <option value="expiring_today">Expiring Today</option>
+            <option value="expiring_week">Expiring This Week</option>
+            <option value="expiring_month">Expiring This Month</option>
+            <option value="expired">Expired</option>
+            <option value="blocked">Blocked</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Gyms List</span>
+          <span style="font-size:0.82rem;color:#94a3b8;" id="gymCount">Loading...</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Gym Name</th><th>Owner</th><th>Mobile</th><th>City</th><th>Status</th><th>Expiry</th><th>Days Left</th><th>Actions</th></tr></thead>
+            <tbody id="gymsBody"><tr><td colspan="9" style="text-align:center;padding:32px;color:#94a3b8;">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Activate Plan Modal -->
+<div class="modal-overlay" id="activateModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Activate / Renew Plan</span>
+      <button class="modal-close" onclick="closeActivate()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:#1e3a5f;border-radius:10px;padding:14px;margin-bottom:16px;" id="gymInfoBox"></div>
+      <input type="hidden" id="activateGymId">
+      <div class="form-group">
+        <label>Select Plan *</label>
+        <select id="activatePlan"><option value="">Select plan</option></select>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Amount (₹) *</label><input type="number" id="activateAmount" placeholder="e.g. 4999"></div>
+        <div class="form-group"><label>Payment Mode *</label>
+          <select id="activateMode"><option value="upi">UPI</option><option value="bank_transfer">Bank Transfer</option><option value="cash">Cash</option><option value="other">Other</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Transaction ID</label><input type="text" id="activateTxn" placeholder="optional"></div>
+        <div class="form-group"><label>Payment Date *</label><input type="date" id="activateDate"></div>
+      </div>
+      <div class="form-group"><label>Remarks</label><input type="text" id="activateRemarks" placeholder="e.g. WhatsApp payment verified"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeActivate()">Cancel</button>
+      <button class="btn btn-primary" id="activateBtn" onclick="activatePlan()">Activate Plan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Gym Detail Modal -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Gym Details</span><button class="modal-close" onclick="closeDetail()">✕</button></div>
+    <div class="modal-body" id="detailBody"></div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeDetail()">Close</button></div>
+  </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script>
+  checkSuperAuth();
+
+  let allGyms = [];
+  let plans = [];
+
+  async function loadData() {
+    const [gymRes, planRes] = await Promise.all([
+      api('GET', '/super/gyms/'),
+      api('GET', '/subscriptions/plans/')
+    ]);
+    if (!gymRes?.ok || !planRes?.ok) return;
+    allGyms = await gymRes.json();
+    plans = await planRes.json();
+
+    const sel = document.getElementById('activatePlan');
+    sel.innerHTML = '<option value="">Select plan</option>' + plans.map(p => `<option value="${p.id}" data-price="${p.price}">${p.name} — ₹${Number(p.price).toLocaleString('en-IN')}</option>`).join('');
+
+    renderGyms(allGyms);
+
+    const params = new URLSearchParams(window.location.search);
+    const search = params.get('search');
+    if (search) { document.getElementById('searchInput').value = search; searchGyms(); }
+  }
+
+  function renderGyms(gyms) {
+    document.getElementById('gymCount').textContent = `${gyms.length} gym${gyms.length !== 1 ? 's' : ''}`;
+    const tbody = document.getElementById('gymsBody');
+    if (!gyms.length) { tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">🏋️</div><p>No gyms found.</p></div></td></tr>'; return; }
+
+    const badgeMap = {
+      trial_active: 'badge-trial', active: 'badge-active', expiring_soon: 'badge-expiring',
+      trial_expired: 'badge-expired', expired: 'badge-expired', blocked: 'badge-blocked', cancelled: 'badge-expired'
+    };
+
+    tbody.innerHTML = gyms.map(g => {
+      const expiry = g.subscription_end_date || g.trial_end_date;
+      const days = daysLeft(expiry);
+      const badge = badgeMap[g.status] || 'badge-expired';
+      const label = g.status.replace(/_/g, ' ');
+      return `<tr>
+        <td style="color:#94a3b8;font-size:0.78rem;">${g.id}</td>
+        <td><strong>${g.gym_name}</strong></td>
+        <td>${g.owner_name}</td>
+        <td><strong>${g.mobile}</strong></td>
+        <td style="color:#94a3b8;">${g.city || '—'}</td>
+        <td><span class="badge ${badge}">${label}</span></td>
+        <td>${formatDate(expiry)}</td>
+        <td style="font-weight:700;color:${days < 0 ? '#ef4444' : days <= 7 ? '#eab308' : '#22c55e'};">${days}</td>
+        <td style="display:flex;gap:4px;flex-wrap:wrap;">
+          <button class="btn-sm edit" onclick="viewGym(${g.id})">View</button>
+          <button class="btn-sm mark" onclick="openActivate(${g.id})">Renew</button>
+          ${g.is_blocked
+            ? `<button class="btn-sm edit" onclick="unblockGym(${g.id})">Unblock</button>`
+            : `<button class="btn-sm block" onclick="blockGym(${g.id})">Block</button>`}
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  function searchGyms() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    if (!q) { renderGyms(allGyms); return; }
+    renderGyms(allGyms.filter(g =>
+      g.mobile.includes(q) || g.gym_name.toLowerCase().includes(q) ||
+      g.owner_name.toLowerCase().includes(q) || g.email.toLowerCase().includes(q) ||
+      (g.city || '').toLowerCase().includes(q)
+    ));
+  }
+
+  async function filterGyms() {
+    const f = document.getElementById('filterSelect').value;
+    const res = await api('GET', `/super/gyms/?filter=${f}`);
+    if (res?.ok) { allGyms = await res.json(); renderGyms(allGyms); }
+  }
+
+  function openActivate(gymId) {
+    const gym = allGyms.find(g => g.id === gymId);
+    document.getElementById('activateGymId').value = gymId;
+    document.getElementById('activateDate').value = todayStr();
+    document.getElementById('activateAmount').value = '';
+    document.getElementById('activateTxn').value = '';
+    document.getElementById('activateRemarks').value = '';
+    document.getElementById('gymInfoBox').innerHTML = `
+      <strong>${gym.gym_name}</strong> — ${gym.owner_name}<br>
+      <span style="color:#94a3b8;font-size:0.82rem;">📱 ${gym.mobile} | Current: ${gym.status.replace(/_/g,' ')} | Expiry: ${formatDate(gym.subscription_end_date || gym.trial_end_date)}</span>`;
+    document.getElementById('activateModal').classList.add('open');
+  }
+  function closeActivate() { document.getElementById('activateModal').classList.remove('open'); }
+
+  document.getElementById('activatePlan').addEventListener('change', function() {
+    const opt = this.options[this.selectedIndex];
+    if (opt.dataset.price) document.getElementById('activateAmount').value = opt.dataset.price;
+  });
+
+  async function activatePlan() {
+    const gymId = document.getElementById('activateGymId').value;
+    const planId = document.getElementById('activatePlan').value;
+    const amount = document.getElementById('activateAmount').value;
+    const date = document.getElementById('activateDate').value;
+    if (!gymId || !planId || !amount || !date) { showToast('Fill all required fields.', 'error'); return; }
+
+    const btn = document.getElementById('activateBtn');
+    btn.textContent = 'Activating...'; btn.disabled = true;
+
+    const res = await api('POST', '/subscriptions/activate/', {
+      gym_id: Number(gymId), plan_id: Number(planId),
+      amount: Number(amount),
+      payment_mode: document.getElementById('activateMode').value,
+      transaction_id: document.getElementById('activateTxn').value,
+      payment_date: date,
+      remarks: document.getElementById('activateRemarks').value,
+    });
+
+    btn.textContent = 'Activate Plan'; btn.disabled = false;
+    if (res?.ok) { const d = await res.json(); showToast(d.message); closeActivate(); loadData(); }
+    else { const d = await res?.json(); showToast(d?.error || 'Error activating plan.', 'error'); }
+  }
+
+  async function blockGym(id) {
+    if (!confirm('Block this gym? They will lose access.')) return;
+    const res = await api('POST', `/super/gyms/${id}/block/`);
+    if (res?.ok) { showToast('Gym blocked.'); loadData(); }
+  }
+
+  async function unblockGym(id) {
+    if (!confirm('Unblock this gym?')) return;
+    const res = await api('POST', `/super/gyms/${id}/unblock/`);
+    if (res?.ok) { showToast('Gym unblocked.'); loadData(); }
+  }
+
+  async function viewGym(id) {
+    const res = await api('GET', `/super/gyms/${id}/`);
+    if (!res?.ok) return;
+    const g = await res.json();
+    const expiry = g.subscription_end_date || g.trial_end_date;
+    document.getElementById('detailBody').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        ${[['Gym Name',g.gym_name],['Owner',g.owner_name],['Mobile',g.mobile],['Email',g.email],
+           ['City',g.city||'—'],['State',g.state||'—'],['Address',g.address||'—'],['Status',g.status.replace(/_/g,' ')],
+           ['Trial Start',formatDate(g.trial_start_date)],['Trial End',formatDate(g.trial_end_date)],
+           ['Subscription Expiry',formatDate(g.subscription_end_date)],['Days Remaining',g.days_remaining]
+        ].map(([k,v]) => `<div><div style="font-size:0.72rem;color:#94a3b8;margin-bottom:2px;">${k}</div><div style="font-weight:600;">${v}</div></div>`).join('')}
+      </div>`;
+    document.getElementById('detailModal').classList.add('open');
+  }
+  function closeDetail() { document.getElementById('detailModal').classList.remove('open'); }
+
+  loadData();
+</script>
+</body>
+</html>

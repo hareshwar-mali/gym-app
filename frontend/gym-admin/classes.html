@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Classes — GymSaaS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo"><h2>GymSaaS</h2><p id="gymNameSidebar">—</p></div>
+    <nav class="sidebar-nav">
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">📊</span> Dashboard</a>
+      <a href="members.html" class="nav-item"><span class="nav-icon">👥</span> Members</a>
+      <a href="attendance.html" class="nav-item"><span class="nav-icon">✅</span> Attendance</a>
+      <a href="payments.html" class="nav-item"><span class="nav-icon">💰</span> Payments</a>
+      <a href="classes.html" class="nav-item active"><span class="nav-icon">📅</span> Classes</a>
+      <a href="subscription.html" class="nav-item"><span class="nav-icon">⭐</span> Subscription</a>
+    </nav>
+    <div class="sidebar-footer"><button class="logout-btn" onclick="logout()">🚪 Logout</button></div>
+  </aside>
+
+  <div class="main-content">
+    <div id="subBanner"></div>
+    <div class="top-header">
+      <span class="page-title">📅 Classes</span>
+      <button class="btn btn-primary" onclick="openModal()" style="padding:9px 16px;font-size:0.82rem;">➕ Add</button>
+    </div>
+    <div class="page-body">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Class Schedule</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Icon</th><th>Class</th><th>Trainer</th><th>Day</th><th>Time</th><th>Capacity</th><th>Actions</th></tr></thead>
+            <tbody id="classesBody"><tr><td colspan="8" style="text-align:center;padding:32px;color:#94a3b8;">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="classModal">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title" id="classModalTitle">Add Class</span><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="editId">
+      <div class="form-row">
+        <div class="form-group"><label>Class Name *</label><input type="text" id="cName" placeholder="e.g. Yoga"></div>
+        <div class="form-group"><label>Icon (emoji)</label><input type="text" id="cIcon" placeholder="🧘" maxlength="4"></div>
+      </div>
+      <div class="form-group"><label>Trainer Name *</label><input type="text" id="cTrainer" placeholder="e.g. Priya Sharma"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Day *</label>
+          <select id="cDay">
+            <option value="">Select day</option>
+            <option value="monday">Monday</option><option value="tuesday">Tuesday</option>
+            <option value="wednesday">Wednesday</option><option value="thursday">Thursday</option>
+            <option value="friday">Friday</option><option value="saturday">Saturday</option><option value="sunday">Sunday</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Capacity</label><input type="number" id="cCapacity" placeholder="e.g. 20"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Start Time *</label><input type="time" id="cStart"></div>
+        <div class="form-group"><label>End Time *</label><input type="time" id="cEnd"></div>
+      </div>
+      <div class="form-group"><label>Description</label><textarea id="cDesc" rows="2" placeholder="Brief description..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveClass()">Save Class</button>
+    </div>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <a href="dashboard.html" class="bn-item"><span class="bn-icon">📊</span>Home</a>
+    <a href="members.html" class="bn-item"><span class="bn-icon">👥</span>Members</a>
+    <a href="attendance.html" class="bn-item"><span class="bn-icon">✅</span>Attend</a>
+    <a href="payments.html" class="bn-item"><span class="bn-icon">💰</span>Pay</a>
+    <a href="classes.html" class="bn-item active"><span class="bn-icon">📅</span>Classes</a>
+  </div>
+</nav>
+
+<script src="../js/api.js"></script>
+<script>
+  const gym = checkGymAuth();
+  if (gym) { document.getElementById('gymNameSidebar').textContent = gym.gym_name; document.getElementById('subBanner').innerHTML = getSubscriptionBanner(gym); }
+
+  let allClasses = [];
+
+  async function loadClasses() {
+    const res = await api('GET', '/gym/classes/');
+    if (!res?.ok) return;
+    allClasses = await res.json();
+    const tbody = document.getElementById('classesBody');
+    if (!allClasses.length) { tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📅</div><p>No classes yet.</p></div></td></tr>'; return; }
+    tbody.innerHTML = allClasses.map(c => `<tr>
+      <td style="color:#94a3b8;font-size:0.78rem;">${c.id}</td>
+      <td style="font-size:1.4rem;">${c.icon || '🏋️'}</td>
+      <td><strong>${c.class_name}</strong>${c.description ? `<br><span style="font-size:0.72rem;color:#94a3b8;">${c.description}</span>` : ''}</td>
+      <td>${c.trainer_name}</td>
+      <td style="text-transform:capitalize;">${c.day}</td>
+      <td><span class="badge badge-active">${c.start_time} – ${c.end_time}</span></td>
+      <td>${c.capacity}</td>
+      <td style="display:flex;gap:6px;">
+        <button class="btn-sm edit" onclick="editClass(${c.id})">Edit</button>
+        <button class="btn-sm delete" onclick="deleteClass(${c.id})">Delete</button>
+      </td>
+    </tr>`).join('');
+  }
+
+  function openModal() {
+    document.getElementById('classModalTitle').textContent = 'Add Class';
+    document.getElementById('editId').value = '';
+    ['cName','cIcon','cTrainer','cCapacity','cDesc'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('cDay').value = '';
+    document.getElementById('cStart').value = '';
+    document.getElementById('cEnd').value = '';
+    document.getElementById('classModal').classList.add('open');
+  }
+  function closeModal() { document.getElementById('classModal').classList.remove('open'); }
+
+  function editClass(id) {
+    const c = allClasses.find(c => c.id === id);
+    if (!c) return;
+    document.getElementById('classModalTitle').textContent = 'Edit Class';
+    document.getElementById('editId').value = id;
+    document.getElementById('cName').value = c.class_name;
+    document.getElementById('cIcon').value = c.icon || '';
+    document.getElementById('cTrainer').value = c.trainer_name;
+    document.getElementById('cDay').value = c.day;
+    document.getElementById('cStart').value = c.start_time;
+    document.getElementById('cEnd').value = c.end_time;
+    document.getElementById('cCapacity').value = c.capacity;
+    document.getElementById('cDesc').value = c.description || '';
+    document.getElementById('classModal').classList.add('open');
+  }
+
+  async function saveClass() {
+    const id = document.getElementById('editId').value;
+    const body = {
+      class_name: document.getElementById('cName').value.trim(),
+      icon: document.getElementById('cIcon').value.trim() || '🏋️',
+      trainer_name: document.getElementById('cTrainer').value.trim(),
+      day: document.getElementById('cDay').value,
+      start_time: document.getElementById('cStart').value,
+      end_time: document.getElementById('cEnd').value,
+      capacity: Number(document.getElementById('cCapacity').value) || 20,
+      description: document.getElementById('cDesc').value.trim(),
+      is_active: true,
+    };
+    if (!body.class_name || !body.trainer_name || !body.day || !body.start_time || !body.end_time) { showToast('Fill all required fields.', 'error'); return; }
+
+    const res = id ? await api('PUT', `/gym/classes/${id}/`, body) : await api('POST', '/gym/classes/', body);
+    if (res?.ok) { showToast(id ? 'Class updated!' : 'Class added!'); closeModal(); loadClasses(); }
+    else showToast('Error saving class.', 'error');
+  }
+
+  async function deleteClass(id) {
+    if (!confirm('Delete this class?')) return;
+    const res = await api('DELETE', `/gym/classes/${id}/`);
+    if (res?.ok) { showToast('Class deleted.'); loadClasses(); }
+  }
+
+  loadClasses();
+</script>
+</body>
+</html>
