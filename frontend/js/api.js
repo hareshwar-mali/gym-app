@@ -1,4 +1,4 @@
-const API_BASE = 'https://ca42-2401-4900-560f-257c-e469-b7ea-9a10-a41f.ngrok-free.app/api';
+const API_BASE = 'http://127.0.0.1:8000/api';
 
 function getToken() { return localStorage.getItem('access_token'); }
 function getRefreshToken() { return localStorage.getItem('refresh_token'); }
@@ -39,7 +39,7 @@ async function refreshToken() {
 
 async function api(method, endpoint, body = null, retry = true) {
   const token = getToken();
-  const headers = { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' };
+  const headers = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
   const opts = { method, headers };

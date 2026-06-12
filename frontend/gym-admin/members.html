@@ -36,8 +36,8 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Plan</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead>
-            <tbody id="membersBody"><tr><td colspan="7" style="text-align:center;padding:32px;color:#94a3b8;">Loading...</td></tr></tbody>
+            <thead><tr><th>#</th><th>Name & Phone</th><th>Plan</th><th>Expiry</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="membersBody"><tr><td colspan="6" style="text-align:center;padding:32px;color:#94a3b8;">Loading...</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -114,7 +114,7 @@
 
   function renderMembers(members) {
     const tbody = document.getElementById('membersBody');
-    if (!members.length) { tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">👥</div><p>No members yet. Add your first member.</p></div></td></tr>'; return; }
+    if (!members.length) { tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">👥</div><p>No members yet. Add your first member.</p></div></td></tr>'; return; }
     tbody.innerHTML = members.map(m => {
       const days = daysLeft(m.membership_end_date);
       const badge = m.membership_status !== 'active' ? 'badge-expired' : days < 0 ? 'badge-expired' : days <= 7 ? 'badge-expiring' : 'badge-active';
@@ -122,7 +122,6 @@
       return `<tr>
         <td style="color:#94a3b8;font-size:0.78rem;">${m.id}</td>
         <td><strong>${m.name}</strong><br><span style="font-size:0.72rem;color:#94a3b8;">${m.mobile}</span></td>
-        <td>${m.mobile}</td>
         <td style="font-size:0.78rem;">${m.membership_plan || '—'}</td>
         <td>${formatDate(m.membership_end_date)}</td>
         <td><span class="badge ${badge}">${label}</span></td>
